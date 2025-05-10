@@ -154,6 +154,25 @@
     <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
+    <!-- Script for auto logout after 5 minutes -->
+    <script>
+        let timer;
+    
+        function resetTimer() {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                window.location.href = "{% url 'logout' %}";
+            }, 300000); // 5 minutes
+        }
+    
+        // Reset on user activity
+        window.onload = resetTimer;
+        document.onmousemove = resetTimer;
+        document.onkeypress = resetTimer;
+        document.onclick = resetTimer;
+        document.onscroll = resetTimer;
+    </script>
+    
     <script>
         // Initialize all dropdowns
         document.addEventListener('DOMContentLoaded', function() {
