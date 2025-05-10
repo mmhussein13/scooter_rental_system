@@ -30,10 +30,10 @@ def dashboard(request):
     # Get recent job cards with select_related for better performance - limit to 2 items
     recent_job_cards = JobCard.objects.select_related('scooter', 'technician').order_by('-date_created')[:2]
     
-    # Get low stock alerts with select_related for better performance - limit to 5 items
+    # Get low stock alerts with select_related for better performance - limit to 2 items
     low_stock_alerts = Parts.objects.select_related('store').filter(
         current_stock__lte=models.F('reorder_level')
-    ).order_by('current_stock')[:5]
+    ).order_by('current_stock')[:2]
     
     # Get formatted low stock items for the dashboard widget (limit to 2 as requested)
     low_stock_items_widget = get_low_stock_items_for_dashboard(limit=2)

@@ -126,7 +126,12 @@
                     
                     <hr>
                     
-                    <h5 class="mb-3">Parts Used</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Parts Used</h5>
+                        <button type="button" class="btn btn-sm btn-success" id="add-part-row">
+                            <i class="fas fa-plus"></i> Add Item
+                        </button>
+                    </div>
                     {{ formset.management_form }}
                     <div class="table-responsive">
                         <table class="table table-bordered" id="parts-table">
@@ -136,10 +141,10 @@
                                     <th>Quantity</th>
                                     <th>Unit Price (R)</th>
                                     <th>Total Price (R)</th>
-                                    <th>Remove</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="parts-tbody">
                                 {% for form in formset %}
                                     <tr class="part-form">
                                         <td>
@@ -169,12 +174,22 @@
                                                 <div class="text-danger">{{ form.total_price.errors }}</div>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            {% if form.instance.pk %}
-                                                {{ form.DELETE }}
-                                            {% else %}
-                                                <button type="button" class="btn btn-sm btn-danger remove-part"><i class="fas fa-trash"></i></button>
-                                            {% endif %}
+                                        <td class="text-center">
+                                            <div class="btn-group">
+                                                {% if form.instance.pk %}
+                                                    {{ form.DELETE }}
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="removePartRow(this)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="removePartRow(this)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button type="button" class="btn btn-sm btn-success" onclick="addNewPartRow(this)">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -196,6 +211,73 @@
 
 {% block extra_js %}
 <script>
+function removePartRow(button) {
+    // Find the current row
+    const row = button.closest('tr');
+    
+    // Check if there's a DELETE checkbox (for existing rows)
+    const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+    
+    if (deleteCheckbox) {
+        // Mark for deletion and hide the row
+        deleteCheckbox.checked = true;
+        row.style.display = 'none';
+    } else {
+        // If no DELETE checkbox (new form), just remove the row
+        row.remove();
+    }
+    
+    return false; // Prevent default
+}
+
+function addNewPartRow(button) {
+    // Get the current row that contains the button
+    const currentRow = button.closest('tr');
+    
+    // Clone the row
+    const newRow = currentRow.cloneNode(true);
+    
+    // Get the form count to generate new IDs
+    const formCount = document.querySelector('[name="partsused_set-TOTAL_FORMS"]');
+    const newIndex = parseInt(formCount.value);
+    
+    // Update form count
+    formCount.value = newIndex + 1;
+    
+    // Clear input values in the new row
+    newRow.querySelectorAll('input').forEach(input => {
+        if (input.type !== 'hidden' && !input.name.includes('DELETE')) {
+            input.value = '';
+        }
+    });
+    
+    // Reset any select fields
+    newRow.querySelectorAll('select').forEach(select => {
+        select.selectedIndex = 0;
+    });
+    
+    // Update IDs and names to use the new index
+    newRow.querySelectorAll('[name^="partsused_set-"]').forEach(field => {
+        const name = field.getAttribute('name');
+        const id = field.getAttribute('id');
+        
+        if (name) {
+            const newName = name.replace(/partsused_set-\d+/, `partsused_set-${newIndex}`);
+            field.setAttribute('name', newName);
+        }
+        
+        if (id) {
+            const newId = id.replace(/id_partsused_set-\d+/, `id_partsused_set-${newIndex}`);
+            field.setAttribute('id', newId);
+        }
+    });
+    
+    // Add the new row after the current one
+    currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
+    
+    // Prevent default button behavior
+    return false;
+}
     // Add Bootstrap classes to form fields
     document.addEventListener('DOMContentLoaded', function() {
         const formControls = document.querySelectorAll('input, select, textarea');
@@ -217,9 +299,8 @@
             input.classList.add('form-control');
         });
         
-        // Auto-calculate total price when quantity or unit price changes
-        const partForms = document.querySelectorAll('.part-form');
-        partForms.forEach(function(form) {
+        // Function to set up event listeners for part row
+        function setupPartFormListeners(form) {
             const quantityInput = form.querySelector('input[name$="-quantity"]');
             const unitPriceInput = form.querySelector('input[name$="-unit_price"]');
             const totalPriceInput = form.querySelector('input[name$="-total_price"]');
@@ -261,25 +342,135 @@
                     });
                 }
             }
+            
+            // Handle remove part button
+            const removeButton = form.querySelector('.remove-part');
+            if (removeButton) {
+                removeButton.addEventListener('click', function() {
+                    const row = this.closest('tr');
+                    row.style.display = 'none';
+                    
+                    // Find the DELETE checkbox if it exists and check it
+                    const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+                    if (deleteCheckbox) {
+                        deleteCheckbox.checked = true;
+                    } else {
+                        // If no DELETE checkbox (new form), just hide the row
+                        row.remove();
+                    }
+                });
+            }
+            
+            // Handle add part inline button
+            const addInlineButton = form.querySelector('.add-part-inline');
+            if (addInlineButton) {
+                addInlineButton.addEventListener('click', function() {
+                    // Get the current form count
+                    const formCountInput = document.querySelector('[name="jobcarditem_set-TOTAL_FORMS"]');
+                    if (!formCountInput) return;
+                    
+                    const formCount = parseInt(formCountInput.value);
+                    
+                    // Clone the current row
+                    const currentRow = this.closest('tr');
+                    const newRow = currentRow.cloneNode(true);
+                    
+                    // Update the IDs and names of all form elements
+                    newRow.querySelectorAll('input, select, textarea').forEach(function(element) {
+                        const name = element.getAttribute('name');
+                        const id = element.getAttribute('id');
+                        
+                        if (name) {
+                            const newName = name.replace(/jobcarditem_set-\d+/, `jobcarditem_set-${formCount}`);
+                            element.setAttribute('name', newName);
+                        }
+                        
+                        if (id) {
+                            const newId = id.replace(/id_jobcarditem_set-\d+/, `id_jobcarditem_set-${formCount}`);
+                            element.setAttribute('id', newId);
+                        }
+                        
+                        // Clear values for new row
+                        if (element.tagName === 'SELECT') {
+                            element.selectedIndex = 0;
+                        } else if (element.type !== 'hidden' && !element.classList.contains('delete-checkbox')) {
+                            element.value = '';
+                        }
+                    });
+                    
+                    // Add new row after current one
+                    if (currentRow.nextSibling) {
+                        currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
+                    } else {
+                        currentRow.parentNode.appendChild(newRow);
+                    }
+                    
+                    // Set up the event listeners for the new row
+                    setupPartFormListeners(newRow);
+                    
+                    // Update the form count
+                    formCountInput.value = formCount + 1;
+                });
+            }
+        }
+        
+        // Set up existing part forms and attach listeners
+        const partForms = document.querySelectorAll('.part-form');
+        partForms.forEach(setupPartFormListeners);
+        
+        // Make sure all add buttons are initialized
+        partForms.forEach(row => {
+            const addButton = row.querySelector('.add-part-inline');
+            if (addButton) {
+                console.log('Initializing add button in row');
+            }
         });
         
-        // Handle remove part button
-        const removeButtons = document.querySelectorAll('.remove-part');
-        removeButtons.forEach(function(button) {
-            button.addEventListener('click', function() {
-                const row = this.closest('tr');
-                row.style.display = 'none';
+        // Handle the "Add Item" button click
+        const addPartButton = document.getElementById('add-part-row');
+        if (addPartButton) {
+            addPartButton.addEventListener('click', function() {
+                // Get the total number of forms
+                const formCountInput = document.querySelector('[name="jobcarditem_set-TOTAL_FORMS"]');
+                if (!formCountInput) return;
                 
-                // Find the DELETE checkbox if it exists and check it
-                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
-                if (deleteCheckbox) {
-                    deleteCheckbox.checked = true;
-                } else {
-                    // If no DELETE checkbox (new form), just hide the row
-                    row.remove();
-                }
+                const formCount = parseInt(formCountInput.value);
+                
+                // Clone the first form or create a new row
+                const tbody = document.getElementById('parts-tbody');
+                const firstForm = tbody.querySelector('.part-form');
+                if (!firstForm) return;
+                
+                const newRow = firstForm.cloneNode(true);
+                
+                // Update the IDs and names of all inputs in the new row
+                const inputs = newRow.querySelectorAll('input, select');
+                inputs.forEach(function(input) {
+                    const name = input.getAttribute('name');
+                    if (name) {
+                        const newName = name.replace(/\d+/, formCount);
+                        input.setAttribute('name', newName);
+                        input.setAttribute('id', `id_${newName}`);
+                        
+                        // Clear values
+                        if (input.tagName === 'SELECT') {
+                            input.selectedIndex = 0;
+                        } else if (input.type !== 'hidden' && !input.name.includes('DELETE')) {
+                            input.value = '';
+                        }
+                    }
+                });
+                
+                // Add the new row to the table
+                tbody.appendChild(newRow);
+                
+                // Setup the listeners for the new row
+                setupPartFormListeners(newRow);
+                
+                // Update the form count
+                formCountInput.value = formCount + 1;
             });
-        });
+        }
     });
 </script>
 {% endblock %}

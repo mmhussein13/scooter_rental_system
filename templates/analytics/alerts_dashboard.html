@@ -175,7 +175,7 @@
                                                     </form>
                                                 {% endif %}
                                                 
-                                                <button type="button" class="btn btn-sm btn-info" data-bs-toggle="collapse" data-bs-target="#details-{{ alert.id }}">
+                                                <button type="button" class="btn btn-sm btn-info details-button" data-bs-toggle="collapse" data-bs-target="#details-{{ alert.id }}">
                                                     <i class="fas fa-info-circle me-1"></i> Details
                                                 </button>
                                             </td>
@@ -246,6 +246,31 @@
 
 {% block extra_js %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap collapsible elements
+        const detailsButtons = document.querySelectorAll('.details-button');
+        
+        detailsButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const target = this.getAttribute('data-bs-target');
+                const detailsRow = document.querySelector(target);
+                
+                // Toggle the collapse class
+                if (detailsRow.classList.contains('show')) {
+                    detailsRow.classList.remove('show');
+                } else {
+                    // Close any open rows first
+                    document.querySelectorAll('.collapse.show').forEach(row => {
+                        if (row.id !== detailsRow.id.substring(1)) {
+                            row.classList.remove('show');
+                        }
+                    });
+                    detailsRow.classList.add('show');
+                }
+            });
+        });
+    });
+
     // Refresh alert count every 5 minutes
     setInterval(function() {
         fetch('{% url "analytics:alert_count_api" %}')

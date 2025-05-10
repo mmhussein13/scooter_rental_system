@@ -138,7 +138,12 @@
                 </div>
                 
                 <hr>
-                <h4>Purchase Items</h4>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Purchase Items</h4>
+                    <button type="button" id="add-item" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                </div>
                 
                 <div id="purchase-items">
                     <div class="table-responsive">
@@ -150,7 +155,7 @@
                                     <th>Description</th>
                                     <th>Quantity</th>
                                     <th>Unit Price (R)</th>
-                                    <th>Remove</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -189,13 +194,22 @@
                                                 {{ form.unit_price }}
                                             </div>
                                         </td>
-                                        <td>
-                                            {% if form.instance.pk %}
-                                                {{ form.DELETE }}
-                                                <i class="fas fa-trash delete-row"></i>
-                                            {% else %}
-                                                <i class="fas fa-trash delete-row"></i>
-                                            {% endif %}
+                                        <td class="text-center">
+                                            <div class="btn-group">
+                                                {% if form.instance.pk %}
+                                                    {{ form.DELETE }}
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeItemRow(this)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeItemRow(this)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button type="button" class="btn btn-sm btn-success add-row-btn" onclick="addNewRow(this)">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -203,10 +217,6 @@
                         </table>
                     </div>
                 </div>
-                
-                <button type="button" id="add-item" class="btn btn-secondary mb-3">
-                    <i class="fas fa-plus"></i> Add Item
-                </button>
                 
                 <div class="d-flex justify-content-end mt-4">
                     <button type="submit" class="btn btn-primary">
@@ -221,6 +231,86 @@
 
 {% block extra_js %}
 <script>
+    // Function to remove an item row
+    function removeItemRow(button) {
+        // Find the current row
+        const row = button.closest('tr');
+        
+        // Check if there's a DELETE checkbox (for existing rows)
+        const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+        
+        if (deleteCheckbox) {
+            // Mark for deletion and hide the row
+            deleteCheckbox.checked = true;
+            row.style.display = 'none';
+        } else {
+            // If no DELETE checkbox (new form), just remove the row
+            row.remove();
+        }
+        
+        return false; // Prevent default
+    }
+    
+    // Function to add a new row when clicking the inline plus button
+    function addNewRow(button) {
+        const currentRow = button.closest('tr');
+        const tbody = currentRow.parentElement;
+        const newRow = currentRow.cloneNode(true);
+        
+        // Clear the input values in the new row
+        newRow.querySelectorAll('input').forEach(input => {
+            if (input.type !== 'hidden' && !input.name.includes('DELETE')) {
+                input.value = '';
+            }
+        });
+        
+        // Clear select values
+        newRow.querySelectorAll('select').forEach(select => {
+            select.selectedIndex = 0;
+        });
+        
+        // Update the form indices
+        const totalForms = document.querySelector('[name="purchaseitem_set-TOTAL_FORMS"]');
+        const currentIndex = parseInt(totalForms.value);
+        totalForms.value = currentIndex + 1;
+        
+        // Update the form IDs and names in the new row
+        newRow.querySelectorAll('[name^="purchaseitem_set-"]').forEach(element => {
+            const name = element.getAttribute('name');
+            const newName = name.replace(/purchaseitem_set-\d+/, `purchaseitem_set-${currentIndex}`);
+            element.setAttribute('name', newName);
+            
+            if (element.id) {
+                const id = element.getAttribute('id');
+                const newId = id.replace(/id_purchaseitem_set-\d+/, `id_purchaseitem_set-${currentIndex}`);
+                element.setAttribute('id', newId);
+            }
+        });
+        
+        // Add the new row after the current row
+        tbody.insertBefore(newRow, currentRow.nextSibling);
+        
+        // Re-attach event listeners to the new row
+        const partSelect = newRow.querySelector('[name$="-part"]');
+        const storeSelect = newRow.querySelector('[name$="-store"]');
+        
+        if (partSelect) {
+            partSelect.addEventListener('change', function() {
+                const selectedPart = this.value;
+                // Add any additional part selection logic here
+            });
+        }
+        
+        if (storeSelect) {
+            storeSelect.addEventListener('change', function() {
+                const selectedStore = this.value;
+                // Add any additional store selection logic here
+            });
+        }
+        
+        return false; // Prevent default button behavior
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const addItemBtn = document.getElementById('add-item');
         const itemsTable = document.getElementById('purchase-items-table').querySelector('tbody');
@@ -283,8 +373,9 @@
             // Update the form count
             document.getElementById('id_form-TOTAL_FORMS').value = formCount + 1;
             
-            // Add event listener to the new delete button
+            // Add event listeners to the new buttons
             setupDeleteButtonListeners();
+            setupAddNewRowButtonListeners();
             
             // Setup part select change handlers for the new row
             setupPartSelectHandlers();
@@ -299,7 +390,7 @@
         }
         
         function handleDeleteClick(e) {
-            const row = e.target.closest('tr');
+            const row = e.currentTarget.closest('tr');
             const deleteCheckbox = row.querySelector('input[type=checkbox][name$=DELETE]');
             
             if (deleteCheckbox) {
@@ -312,6 +403,48 @@
                 // Update form indexes
                 updateFormIndexes();
             }
+        }
+        
+        // Function to handle add new row click
+        function setupAddNewRowButtonListeners() {
+            document.querySelectorAll('.add-new-row').forEach(button => {
+                button.removeEventListener('click', handleAddNewRowClick);
+                button.addEventListener('click', handleAddNewRowClick);
+            });
+        }
+        
+        function handleAddNewRowClick(e) {
+            // Get the current form count
+            const formCount = parseInt(document.getElementById('id_form-TOTAL_FORMS').value);
+            
+            // Clone the current row
+            const currentRow = e.currentTarget.closest('tr');
+            const newRow = currentRow.cloneNode(true);
+            
+            // Clear input values in the new form
+            newRow.querySelectorAll('input:not([type=hidden]), select, textarea').forEach(input => {
+                // Skip the DELETE checkbox
+                if (input.type === 'checkbox' && input.classList.contains('delete')) {
+                    return;
+                }
+                input.value = '';
+            });
+            
+            // Update the form index for the new row
+            updateElementIndex(newRow, 'form', formCount);
+            
+            // Insert the new row after the current row
+            currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
+            
+            // Update the form count
+            document.getElementById('id_form-TOTAL_FORMS').value = formCount + 1;
+            
+            // Add event listeners to the new buttons
+            setupDeleteButtonListeners();
+            setupAddNewRowButtonListeners();
+            
+            // Setup part select change handlers for the new row
+            setupPartSelectHandlers();
         }
         
         // Function to auto-fill part description and unit price when a part is selected
